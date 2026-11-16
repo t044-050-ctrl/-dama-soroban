@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>リアル20玉そろばん - さんすうきょうぐ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* 全体のフォントとタッチ操作の最適化 */
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            touch-action: none; /* 画面のスクロールやズームを防止 */
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #f4efe6;
+            background-image: 
+                radial-gradient(#e5dec9 1px, transparent 1px),
+                radial-gradient(#e5dec9 1px, #f4efe6 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+            overflow: hidden;
+        }
+
+        /* キャンバスの立体感と影 */
+        #soroban-container {
+            box-shadow: 
+                0 20px 35px -10px rgba(60, 40, 20, 0.25),
+                0 10px 15px -5px rgba(60, 40, 20, 0.15),
+                inset 0 2px 4px rgba(255, 255, 255, 0.6);
+        }
+
+        /* 立体的なボタンスタイル */
+        .wood-btn {
+            background: linear-gradient(180deg, #fffdf9 0%, #f0e6d2 100%);
+            border: 2px solid #d4c3a3;
+            box-shadow: 0 4px 0 #b8a37e, 0 6px 10px rgba(0,0,0,0.1);
+            transition: all 0.08s ease;
+        }
+        .wood-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #b8a37e, 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .wood-btn-active {
+            background: linear-gradient(180deg, #ffedd5 0%, #fed7aa 100%);
+            border-color: #f97316;
+            box-shadow: 0 4px 0 #c2410c, 0 6px 10px rgba(0,0,0,0.1);
+            color: #9a3412;
+        }
+        .wood-btn-active:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #c2410c;
+        }
+
+        /* 画面全体を16:9の比率で中央に配置するためのラッパー */
+        #app-viewport {
+            width: min(100vw, calc(100vh * 16 / 9));
+            height: min(100vh, calc(100vw * 9 / 16));
+        }
+
+        /* 全画面表示モードのレイアウト調整 */
+        #app-viewport.is-fullscreen {
+            width: 100vw !important;
+            height: 100vh !important;
+            padding: 12px 16px !important;
+        }
+        #app-viewport.is-fullscreen header,
+        #app-viewport.is-fullscreen footer {
+            display: none !important;
+        }
+        #app-viewport.is-fullscreen main {
+            max-width: 100% !important;
+            margin: 0 !important;
+            flex-direction: column !important;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex justify-center items-center text-stone-800 bg-stone-900/95">
+
+    <!-- 画面全体 16:9 コンテナ -->
+    <div id="app-viewport" class="flex flex-col justify-between items-center p-3 sm:p-5 md:p-6 shadow-2xl relative overflow-hidden" style="background-color: #f4efe6; background-image: radial-gradient(#e5dec9 1px, transparent 1px), radial-gradient(#e5dec9 1px, #f4efe6 1px); background-size: 40px 40px; background-position: 0 0, 20px 20px;">
+
+        <!-- ヘッダー＆コントロールパネル -->
+        <header class="w-full max-w-6xl flex flex-wrap justify-between items-center gap-2 z-10">
+            <div class="flex items-center gap-2 sm:gap-3 bg-white/80 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl border border-amber-200/80 shadow-sm">
+                <span class="text-xl sm:text-2xl">🧮</span>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <select id="select-beads-count" class="bg-amber-100/90 hover:bg-amber-200/80 text-amber-950 font-extrabold text-sm sm:text-base md:text-lg px-2 py-0.5 rounded-lg border border-amber-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors" title="そろばんの玉の数をえらびます">
+                            <option value="1">10だま</option>
+                            <option value="2" selected>20だま</option>
+                            <option value="3">30だま</option>
+                            <option value="4">40だま</option>
+                            <option value="5">50だま</option>
+                            <option value="6">60だま</option>
+                            <option value="7">70だま</option>
+                            <option value="8">80だま</option>
+                            <option value="9">90だま</option>
+                            <option value="10">100だま</option>
+                        </select>
+                        <h1 class="text-sm sm:text-lg md:text-xl font-extrabold text-amber-950 tracking-wide">そろばん</h1>
+                    </div>
+                    <p class="text-[10px] sm:text-xs text-amber-800/80 font-medium">ゆびで たまを うごかしてみよう！</p>
+                </div>
+            </div>
+
+            <!-- カウンター表示エリア（学習サポート機能） -->
+            <div id="counter-panel" class="flex items-center gap-3 sm:gap-5 bg-white/90 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl border-2 border-amber-300 shadow-sm transition-opacity duration-200">
+                <div id="counter-rows-box" class="flex items-center gap-2 sm:gap-3">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold text-stone-500">うえ</span>
+                        <span id="count-top" class="text-base sm:text-xl md:text-2xl font-extrabold text-red-600 leading-none">0</span>
+                    </div>
+                    <div class="text-stone-300 font-bold">+</div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold text-stone-500">した</span>
+                        <span id="count-bottom" class="text-base sm:text-xl md:text-2xl font-extrabold text-amber-600 leading-none">0</span>
+                    </div>
+                    <div class="text-stone-400 font-bold">=</div>
+                </div>
+                <div class="flex flex-col items-center bg-amber-100/80 px-2.5 py-1 sm:px-3 rounded-xl">
+                    <span class="text-[10px] font-bold text-amber-800">あわせて</span>
+                    <span id="count-total" class="text-lg sm:text-2xl md:text-3xl font-extrabold text-amber-950 leading-none">0</span>
+                </div>
+            </div>
+
+            <!-- アクションボタン群 -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <button id="btn-toggle-count" class="wood-btn px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5" title="かずの表示を切り替えます">
+                    <span id="icon-eye">👁️</span>
+                    <span id="text-toggle-count" class="hidden md:inline">かずをかくす</span>
+                </button>
+                <button id="btn-sound" class="wood-btn px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5" title="音のオン・オフ">
+                    <span id="icon-sound">🔊</span>
+                    <span class="hidden md:inline">おと</span>
+                </button>
+                <button id="btn-reset-left" class="wood-btn px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5" title="すべての玉を左に集めます">
+                    <span>⬅️</span>
+                    <span>左へあつめる</span>
+                </button>
+                <button id="btn-reset-right" class="wood-btn px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5" title="すべての玉を右に戻します">
+                    <span>➡️</span>
+                    <span>右へもどす</span>
+                </button>
+                <button id="btn-fullscreen" class="wood-btn p-1.5 sm:p-2 rounded-xl font-bold text-amber-950 flex items-center justify-center" title="全画面表示" aria-label="全画面表示">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 全画面解除ボタン（全画面時のみ右上に表示） -->
+        <button id="btn-exit-fullscreen" class="hidden wood-btn p-2 rounded-xl font-bold text-amber-950 items-center justify-center fixed top-3 right-3 z-30" title="もとの画面にもどす" aria-label="もとの画面にもどす">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 14 10 14 10 20"></polyline>
+                <polyline points="20 10 14 10 14 4"></polyline>
+                <line x1="14" y1="10" x2="21" y2="3"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+        </button>
+
+        <!-- メイン：20玉そろばん本体（Canvas） -->
+        <main class="w-full max-w-6xl flex-1 flex flex-col items-center justify-center my-2 sm:my-3 relative min-h-0">
+            <div id="soroban-wrapper" class="flex-1 w-full flex items-center justify-center min-h-0">
+                <div id="soroban-container" class="w-full h-full rounded-3xl overflow-hidden relative bg-[#e6ccb2] border-4 border-[#b08968] transition-all duration-200">
+                    <canvas id="soroban-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+                </div>
+            </div>
+            <!-- 全画面時のみそろばんの左下・右下に揃えて表示する「←」「→」ボタン -->
+            <div id="fullscreen-bottom-controls" class="hidden justify-between items-center pt-2 shrink-0">
+                <button id="btn-fs-left" class="wood-btn px-5 py-1.5 rounded-xl font-extrabold text-lg sm:text-xl text-amber-950" title="左へあつめる">←</button>
+                <button id="btn-fs-right" class="wood-btn px-5 py-1.5 rounded-xl font-extrabold text-lg sm:text-xl text-amber-950" title="右へもどす">→</button>
+            </div>
+        </main>
+
+        <!-- フッター：使い方のヒント -->
+        <footer class="w-full max-w-6xl text-center">
+            <p class="text-[11px] sm:text-xs md:text-sm text-amber-900/70 font-medium">
+                💡 玉を<span class="font-bold text-amber-950">ゆびでスライド</span>するか、<span class="font-bold text-amber-950">タップ</span>するとまとめて動かせます（中央線より左に寄せた玉の数をかぞえます）
+            </p>
+        </footer>
+
+    </div>
+
+    <script>
+        /**
+         * 20玉そろばん 物理＆音響シミュレーションエンジン
+         * 木の温かみ、玉の立体感、摩擦・衝突のさわり心地をリアルに再現
+         */
+
+        // ==========================================
+        // 1. 音響エンジン (Web Audio API による木製打撃音合成)
+        // ==========================================
+        class WoodSoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+                this.lastPlayTime = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            /**
+             * 木の玉同士、または玉と木枠がぶつかる「カチッ」「コトッ」という音を合成
+             * @param {number} intensity 衝突の強さ (0.0 ~ 1.0)
+             * @param {boolean} isFrame 木枠への衝突かどうか（少し低く響く音にする）
+             */
+            playClack(intensity = 0.55, isFrame = true) {
+                if (!this.enabled) return;
+                this.init();
+
+                const now = this.ctx.currentTime;
+                // スワイプ時の不快な連続音（ビビリ音）を防ぐため、最小発音間隔を適切に設定
+                if (now - this.lastPlayTime < 0.065) return;
+                this.lastPlayTime = now;
+
+                // タップ時と同じ心地よい一定の響きになるよう強さを安定化
+                const clampedIntensity = Math.min(Math.max(intensity, 0.45), 0.75);
+
+                // 1. 木の共鳴音（短く減衰する三角波）
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                // タップ時と同じ澄んだ木の音色（520Hz〜680Hz）
+                const baseFreq = isFrame ? 520 : 660;
+                const randomPitch = 1 + (Math.random() * 0.06 - 0.03);
+                const startFreq = baseFreq * randomPitch;
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(startFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(startFreq * 0.45, now + 0.035);
+
+                const volume = clampedIntensity * 0.42;
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(volume, now + 0.003);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.05);
+
+                // 2. 接触瞬間のアタックノイズ（木の硬質感）
+                const bufferSize = this.ctx.sampleRate * 0.015;
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+                }
+
+                const whiteNoise = this.ctx.createBufferSource();
+                whiteNoise.buffer = noiseBuffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = isFrame ? 1200 : 1500;
+                filter.Q.value = 2.5;
+
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(volume * 0.55, now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+
+                whiteNoise.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(this.ctx.destination);
+
+                whiteNoise.start(now);
+            }
+        }
+
+        // ==========================================
+        // 2. 20玉〜100玉そろばん メインアプリケーション
+        // ==========================================
+        class Soroban20App {
+            constructor() {
+                this.canvas = document.getElementById('soroban-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.sound = new WoodSoundEngine();
+
+                // UI要素
+                this.countTopEl = document.getElementById('count-top');
+                this.countBottomEl = document.getElementById('count-bottom');
+                this.countTotalEl = document.getElementById('count-total');
+                this.counterRowsBox = document.getElementById('counter-rows-box');
+                this.counterPanel = document.getElementById('counter-panel');
+                this.showCount = true;
+                this.isFullscreen = false;
+
+                // そろばんの物理・構造パラメータ（初期設定は2段＝20玉）
+                this.rows = 2;
+                this.beadsPerRow = 10; // 各段10玉（赤5・黄5）
+                this.beads = []; // [row][index]
+
+                // レイアウト寸法（リサイズ時に再計算）
+                this.width = 0;
+                this.height = 0;
+                this.frameThickness = 28;
+                this.trackLeft = 0;
+                this.trackRight = 0;
+                this.beadWidth = 40;
+                this.beadHeight = 64;
+                this.rowY = [];
+
+                // タッチ・ドラッグ操作状態
+                this.activeDrag = null;
+                this.pointerX = 0;
+                this.pointerY = 0;
+
+                // 木目テクスチャ用オフスクリーンキャンバス
+                this.woodPattern = null;
+
+                this.initBeads();
+                this.setupEvents();
+                this.resize();
+                this.resetToRight(false); // 初期状態：右側にすべての玉を配置（0の状態）
+
+                // アニメーションループ開始
+                this.lastFrameTime = performance.now();
+                requestAnimationFrame((t) => this.loop(t));
+            }
+
+            /**
+             * 段数（10玉〜100玉）の変更
+             */
+            setRowCount(newRows) {
+                this.rows = newRows;
+                this.activeDrag = null;
+                // 20玉（2段）のときのみ「うえ＋した＝あわせて」の内訳を表示、それ以外は「あわせて」のみ表示
+                this.counterRowsBox.style.display = this.rows === 2 ? 'flex' : 'none';
+                this.initBeads();
+                this.resize();
+                this.resetToRight(false);
+            }
+
+            /**
+             * 玉のデータ構造初期化
+             */
+            initBeads() {
+                this.beads = [];
+                for (let r = 0; r < this.rows; r++) {
+                    this.beads[r] = [];
+                    for (let i = 0; i < this.beadsPerRow; i++) {
+                        // 50玉を超える場合、5段目までは左から赤・黄、6段目以降は黄・赤と反転させると100玉そろばんとして見やすい
+                        const isInverted = this.rows >= 6 && r >= 5;
+                        const colorType = isInverted ? (i < 5 ? 'yellow' : 'red') : (i < 5 ? 'red' : 'yellow');
+                        this.beads[r].push({
+                            row: r,
+                            index: i,
+                            colorType: colorType,
+                            x: 0,       // 玉の中心X座標
+                            vx: 0,      // 水平速度
+                            targetX: null // アニメーション目標X座標（タップ移動用）
+                        });
+                    }
+                }
+            }
+
+            /**
+             * 画面サイズに応じた寸法再計算
+             */
+            resize() {
+                const container = this.canvas.parentElement;
+                const wrapperEl = container.parentElement;
+                const wrapperRect = wrapperEl.getBoundingClientRect();
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+                // リサイズ前の相対位置（0.0 ~ 1.0）を保存
+                const oldSpan = this.trackRight - this.trackLeft;
+                const ratios = this.beads.map(row =>
+                    row.map(b => oldSpan > 0 ? (b.x - this.trackLeft) / oldSpan : 1)
+                );
+
+                // 1. 最大横幅を基準とした理想の玉サイズ（縦横比 1.55 : 1 を厳密に維持）
+                const maxW = wrapperRect.width;
+                const maxH = wrapperRect.height;
+                const baseFrame = Math.max(16, Math.min(34, maxW * 0.032));
+                const baseTrackW = maxW - baseFrame * 2;
+                const idealBeadW = (baseTrackW * 0.5) / this.beadsPerRow;
+                const idealBeadH = idealBeadW * 1.55;
+                const rowHeightRatio = 0.78; // 段の高さに対する玉の高さの割合
+                const idealRowSpacing = idealBeadH / rowHeightRatio;
+                const idealTotalH = baseFrame * 2 + idealRowSpacing * this.rows;
+
+                // 2. 画面の高さに収まらない場合（多段時）は、玉の縦横比を保ったまま全体スケールを縮小（枠の縦横比が縦長に変化）
+                let scale = 1.0;
+                if (idealTotalH > maxH) {
+                    scale = maxH / idealTotalH;
+                }
+
+                this.frameThickness = Math.max(12, baseFrame * scale);
+                this.beadWidth = idealBeadW * scale;
+                this.beadHeight = idealBeadH * scale; // 常に beadWidth * 1.55（比率不変）
+
+                // 中央線に10個の玉がぴったり収まる有効レール幅から枠の横幅を決定
+                const trackWidth = this.beadWidth * this.beadsPerRow * 2;
+                this.width = trackWidth + this.frameThickness * 2;
+                const rowSpacing = this.beadHeight / rowHeightRatio;
+                this.height = Math.max(110 * scale, this.frameThickness * 2 + rowSpacing * this.rows);
+
+                this.trackLeft = this.frameThickness;
+                this.trackRight = this.width - this.frameThickness;
+
+                // コンテナの幅と高さを動的に適用（段数に応じてそろばん枠の縦横比が変化）
+                container.style.width = `${this.width}px`;
+                container.style.height = `${this.height}px`;
+
+                // 全画面時の下部ボタンバーの幅もそろばん本体の横幅にぴったり揃える
+                const fsControls = document.getElementById('fullscreen-bottom-controls');
+                if (fsControls) {
+                    fsControls.style.width = `${this.width}px`;
+                }
+
+                this.canvas.width = this.width * dpr;
+                this.canvas.height = this.height * dpr;
+                this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                // 各段のY座標を均等配置
+                this.rowY = [];
+                for (let r = 0; r < this.rows; r++) {
+                    this.rowY.push(this.frameThickness + rowSpacing * (r + 0.5));
+                }
+
+                // 木目テクスチャ再生成
+                this.createWoodTexture();
+
+                // 玉の座標を新しいスケールに復元
+                if (oldSpan > 0 && ratios.length === this.rows) {
+                    const newSpan = this.trackRight - this.trackLeft;
+                    for (let r = 0; r < this.rows; r++) {
+                        for (let i = 0; i < this.beadsPerRow; i++) {
+                            this.beads[r][i].x = this.trackLeft + ratios[r][i] * newSpan;
+                        }
+                    }
+                    this.resolveConstraints(false);
+                }
+            }
+
+            /**
+             * リアルな木目パターンの生成（オフスクリーンCanvas）
+             */
+            createWoodTexture() {
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = 256;
+                offCanvas.height = 256;
+                const octx = offCanvas.getContext('2d');
+
+                // ベースの木肌色（ブナ材・カバ材風の明るいナチュラルウッド）
+                octx.fillStyle = '#dcb98a';
+                octx.fillRect(0, 0, 256, 256);
+
+                // 繊細な木目の繊維を描画
+                for (let y = 0; y < 256; y += 2) {
+                    const wave = Math.sin(y * 0.08) * 6;
+                    octx.strokeStyle = y % 4 === 0 ? 'rgba(160, 110, 60, 0.12)' : 'rgba(255, 240, 215, 0.15)';
+                    octx.lineWidth = 1.5;
+                    octx.beginPath();
+                    octx.moveTo(0, y);
+                    octx.bezierCurveTo(85, y + wave, 170, y - wave, 256, y);
+                    octx.stroke();
+                }
+
+                // 導管（小さな木の質感ドット）
+                octx.fillStyle = 'rgba(120, 75, 35, 0.14)';
+                for (let i = 0; i < 400; i++) {
+                    const x = Math.random() * 256;
+                    const y = Math.random() * 256;
+                    octx.fillRect(x, y, 4 + Math.random() * 8, 1);
+                }
+
+                this.woodPattern = this.ctx.createPattern(offCanvas, 'repeat');
+            }
+
+            /**
+             * すべての玉を右端へ戻す（0の状態）
+             */
+            resetToRight(withAnimation = true) {
+                for (let r = 0; r < this.rows; r++) {
+                    for (let i = 0; i < this.beadsPerRow; i++) {
+                        const targetX = this.trackRight - this.beadWidth * (this.beadsPerRow - i - 0.5);
+                        if (withAnimation) {
+                            this.beads[r][i].targetX = targetX;
+                        } else {
+                            this.beads[r][i].x = targetX;
+                            this.beads[r][i].vx = 0;
+                            this.beads[r][i].targetX = null;
+                        }
+                    }
+                }
+                if (withAnimation) {
+                    this.sound.playClack(0.7, true);
+                }
+                this.updateCounter();
+            }
+
+            /**
+             * すべての玉を左端へ集める（20の状態）
+             */
+            resetToLeft(withAnimation = true) {
+                for (let r = 0; r < this.rows; r++) {
+                    for (let i = 0; i < this.beadsPerRow; i++) {
+                        const targetX = this.trackLeft + this.beadWidth * (i + 0.5);
+                        if (withAnimation) {
+                            this.beads[r][i].targetX = targetX;
+                        } else {
+                            this.beads[r][i].x = targetX;
+                            this.beads[r][i].vx = 0;
+                            this.beads[r][i].targetX = null;
+                        }
+                    }
+                }
+                if (withAnimation) {
+                    this.sound.playClack(0.7, true);
+                }
+                this.updateCounter();
+            }
+
+            /**
+             * イベントリスナー登録（Pointer Events でマウス・タッチ両対応）
+             */
+            setupEvents() {
+                window.addEventListener('resize', () => this.resize());
+
+                this.canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+                window.addEventListener('pointermove', (e) => this.onPointerMove(e));
+                window.addEventListener('pointerup', (e) => this.onPointerUp(e));
+                window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+
+                // ボタン操作
+                document.getElementById('select-beads-count').addEventListener('change', (e) => {
+                    this.sound.init();
+                    const newRows = parseInt(e.target.value, 10);
+                    this.setRowCount(newRows);
+                    this.sound.playClack(0.55, true);
+                });
+
+                document.getElementById('btn-reset-right').addEventListener('click', () => {
+                    this.sound.init();
+                    this.resetToRight(true);
+                });
+
+                document.getElementById('btn-reset-left').addEventListener('click', () => {
+                    this.sound.init();
+                    this.resetToLeft(true);
+                });
+
+                document.getElementById('btn-fs-left').addEventListener('click', () => {
+                    this.sound.init();
+                    this.resetToLeft(true);
+                });
+
+                document.getElementById('btn-fs-right').addEventListener('click', () => {
+                    this.sound.init();
+                    this.resetToRight(true);
+                });
+
+                const toggleFullscreen = (forceState) => {
+                    this.isFullscreen = typeof forceState === 'boolean' ? forceState : !this.isFullscreen;
+                    const viewport = document.getElementById('app-viewport');
+                    const exitBtn = document.getElementById('btn-exit-fullscreen');
+                    const fsControls = document.getElementById('fullscreen-bottom-controls');
+
+                    if (this.isFullscreen) {
+                        viewport.classList.add('is-fullscreen');
+                        exitBtn.classList.remove('hidden');
+                        exitBtn.classList.add('flex');
+                        fsControls.classList.remove('hidden');
+                        fsControls.classList.add('flex');
+                        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+                            document.documentElement.requestFullscreen().catch(() => {});
+                        }
+                    } else {
+                        viewport.classList.remove('is-fullscreen');
+                        exitBtn.classList.add('hidden');
+                        exitBtn.classList.remove('flex');
+                        fsControls.classList.add('hidden');
+                        fsControls.classList.remove('flex');
+                        if (document.exitFullscreen && document.fullscreenElement) {
+                            document.exitFullscreen().catch(() => {});
+                        }
+                    }
+                    requestAnimationFrame(() => this.resize());
+                };
+
+                document.getElementById('btn-fullscreen').addEventListener('click', () => {
+                    toggleFullscreen(true);
+                });
+
+                document.getElementById('btn-exit-fullscreen').addEventListener('click', () => {
+                    toggleFullscreen(false);
+                });
+
+                document.addEventListener('fullscreenchange', () => {
+                    if (!document.fullscreenElement && this.isFullscreen) {
+                        toggleFullscreen(false);
+                    }
+                });
+
+                const btnSound = document.getElementById('btn-sound');
+                btnSound.addEventListener('click', () => {
+                    this.sound.enabled = !this.sound.enabled;
+                    document.getElementById('icon-sound').textContent = this.sound.enabled ? '🔊' : '🔇';
+                    if (this.sound.enabled) {
+                        this.sound.init();
+                        this.sound.playClack(0.5, false);
+                    }
+                });
+
+                const btnToggleCount = document.getElementById('btn-toggle-count');
+                btnToggleCount.addEventListener('click', () => {
+                    this.showCount = !this.showCount;
+                    this.counterPanel.style.visibility = this.showCount ? 'visible' : 'hidden';
+                    document.getElementById('icon-eye').textContent = this.showCount ? '👁️' : '🙈';
+                    document.getElementById('text-toggle-count').textContent = this.showCount ? 'かずをかくす' : 'かずをみる';
+                });
+            }
+
+            /**
+             * ポインター座標の取得
+             */
+            getCanvasCoords(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+
+            /**
+             * 指・マウスが触れた瞬間の処理
+             */
+            onPointerDown(e) {
+                this.sound.init();
+                const pos = this.getCanvasCoords(e);
+                this.pointerX = pos.x;
+                this.pointerY = pos.y;
+
+                // 触れた位置にある玉を判定（多段表示でも隣の段に誤反応しないよう調整）
+                let hitBead = null;
+                let minDist = Infinity;
+
+                for (let r = 0; r < this.rows; r++) {
+                    const dy = Math.abs(pos.y - this.rowY[r]);
+                    if (dy <= this.beadHeight * 0.65) {
+                        for (let i = 0; i < this.beadsPerRow; i++) {
+                            const bead = this.beads[r][i];
+                            const dx = Math.abs(pos.x - bead.x);
+                            if (dx <= this.beadWidth * 0.65 && dx < minDist) {
+                                minDist = dx;
+                                hitBead = bead;
+                            }
+                        }
+                    }
+                }
+
+                if (hitBead) {
+                    // 自動アニメーション中なら解除
+                    this.beads[hitBead.row].forEach(b => b.targetX = null);
+
+                    this.activeDrag = {
+                        row: hitBead.row,
+                        index: hitBead.index,
+                        offsetX: pos.x - hitBead.x,
+                        startX: pos.x,
+                        lastX: pos.x,
+                        hasMoved: false,
+                        startTime: performance.now()
+                    };
+                    hitBead.vx = 0;
+                }
+            }
+
+            /**
+             * 指・マウスを動かしている間の処理（玉を押し出すリアルな連動）
+             */
+            onPointerMove(e) {
+                if (!this.activeDrag) return;
+                const pos = this.getCanvasCoords(e);
+                const dx = pos.x - this.activeDrag.lastX;
+
+                if (Math.abs(pos.x - this.activeDrag.startX) > 4) {
+                    this.activeDrag.hasMoved = true;
+                }
+
+                const rowBeads = this.beads[this.activeDrag.row];
+                const draggedBead = rowBeads[this.activeDrag.index];
+
+                // 指の位置に追従させる
+                const desiredX = pos.x - this.activeDrag.offsetX;
+                const moveDelta = desiredX - draggedBead.x;
+
+                draggedBead.x = desiredX;
+                draggedBead.vx = moveDelta * 0.85; // 慣性用の速度を記録
+
+                // 隣接する玉を連鎖的に押し出す（衝突・連鎖移動）
+                this.propagatePush(this.activeDrag.row, this.activeDrag.index, moveDelta);
+
+                this.activeDrag.lastX = pos.x;
+                this.updateCounter();
+            }
+
+            /**
+             * 玉が隣の玉を押す物理連鎖処理
+             */
+            propagatePush(row, sourceIndex, moveDelta) {
+                const rowBeads = this.beads[row];
+                const minLeft = this.trackLeft + this.beadWidth * 0.5;
+                const maxRight = this.trackRight - this.beadWidth * 0.5;
+
+                // 右方向へ押す場合
+                for (let i = sourceIndex; i < this.beadsPerRow - 1; i++) {
+                    const curr = rowBeads[i];
+                    const next = rowBeads[i + 1];
+                    if (curr.x + this.beadWidth > next.x) {
+                        const overlap = (curr.x + this.beadWidth) - next.x;
+                        const wasStationary = Math.abs(next.vx) < 0.2;
+                        next.x = curr.x + this.beadWidth;
+                        next.vx = curr.vx;
+                        // 静止していた玉にぶつかった瞬間だけタップ時と同じ心地よい音を1回鳴らす
+                        if (wasStationary && overlap > 1.2 && Math.abs(moveDelta) > 2.5) {
+                            this.sound.playClack(0.55, false);
+                        }
+                    }
+                }
+
+                // 右端の木枠に当たった場合の押し戻し
+                const lastBead = rowBeads[this.beadsPerRow - 1];
+                if (lastBead.x > maxRight) {
+                    if (lastBead.x - maxRight > 1.5 && Math.abs(moveDelta) > 2.5) {
+                        this.sound.playClack(0.55, true);
+                    }
+                    lastBead.x = maxRight;
+                    lastBead.vx = 0;
+                    for (let i = this.beadsPerRow - 2; i >= 0; i--) {
+                        if (rowBeads[i].x + this.beadWidth > rowBeads[i + 1].x) {
+                            rowBeads[i].x = rowBeads[i + 1].x - this.beadWidth;
+                            rowBeads[i].vx = 0;
+                        }
+                    }
+                }
+
+                // 左方向へ押す場合
+                for (let i = sourceIndex; i > 0; i--) {
+                    const curr = rowBeads[i];
+                    const prev = rowBeads[i - 1];
+                    if (curr.x - this.beadWidth < prev.x) {
+                        const overlap = prev.x - (curr.x - this.beadWidth);
+                        const wasStationary = Math.abs(prev.vx) < 0.2;
+                        prev.x = curr.x - this.beadWidth;
+                        prev.vx = curr.vx;
+                        if (wasStationary && overlap > 1.2 && Math.abs(moveDelta) > 2.5) {
+                            this.sound.playClack(0.55, false);
+                        }
+                    }
+                }
+
+                // 左端の木枠に当たった場合の押し戻し
+                const firstBead = rowBeads[0];
+                if (firstBead.x < minLeft) {
+                    if (minLeft - firstBead.x > 1.5 && Math.abs(moveDelta) > 2.5) {
+                        this.sound.playClack(0.55, true);
+                    }
+                    firstBead.x = minLeft;
+                    firstBead.vx = 0;
+                    for (let i = 1; i < this.beadsPerRow; i++) {
+                        if (rowBeads[i].x - this.beadWidth < rowBeads[i - 1].x) {
+                            rowBeads[i].x = rowBeads[i - 1].x + this.beadWidth;
+                            rowBeads[i].vx = 0;
+                        }
+                    }
+                }
+            }
+
+            /**
+             * 指・マウスを離した瞬間の処理
+             */
+            onPointerUp(e) {
+                if (!this.activeDrag) return;
+
+                const elapsed = performance.now() - this.activeDrag.startTime;
+                // ほとんど動かさずに素早くタップした場合：反対側へまとめてスライドさせる（実物でもよく使う便利な操作）
+                if (!this.activeDrag.hasMoved && elapsed < 260) {
+                    this.handleTapSlide(this.activeDrag.row, this.activeDrag.index);
+                }
+
+                this.activeDrag = null;
+            }
+
+            /**
+             * タップした玉を反対側へ心地よくスライドさせる
+             */
+            handleTapSlide(row, index) {
+                const rowBeads = this.beads[row];
+                const clickedBead = rowBeads[index];
+                const midX = (this.trackLeft + this.trackRight) / 2;
+
+                // 玉が右側にあるなら左側へ（その玉より左の玉も一緒に移動）
+                if (clickedBead.x >= midX) {
+                    for (let i = 0; i <= index; i++) {
+                        const target = this.trackLeft + this.beadWidth * (i + 0.5);
+                        if (rowBeads[i].x > target) {
+                            rowBeads[i].targetX = target;
+                        }
+                    }
+                } else {
+                    // 玉が左側にあるなら右側へ（その玉より右の玉も一緒に移動）
+                    for (let i = index; i < this.beadsPerRow; i++) {
+                        const target = this.trackRight - this.beadWidth * (this.beadsPerRow - i - 0.5);
+                        if (rowBeads[i].x < target) {
+                            rowBeads[i].targetX = target;
+                        }
+                    }
+                }
+            }
+
+            /**
+             * 物理演算（摩擦・慣性・衝突判定）の毎フレーム更新
+             */
+            updatePhysics() {
+                const friction = 0.84; // 金属棒と木玉の心地よい摩擦係数
+
+                for (let r = 0; r < this.rows; r++) {
+                    const rowBeads = this.beads[r];
+
+                    for (let i = 0; i < this.beadsPerRow; i++) {
+                        const b = rowBeads[i];
+
+                        // ドラッグ中の玉はポインター処理に任せる
+                        if (this.activeDrag && this.activeDrag.row === r && this.activeDrag.index === i) {
+                            continue;
+                        }
+
+                        // タップ・リセット時の目標座標へのスムーズ移動
+                        if (b.targetX !== null) {
+                            const diff = b.targetX - b.x;
+                            if (Math.abs(diff) < 0.8) {
+                                b.x = b.targetX;
+                                b.targetX = null;
+                                b.vx = 0;
+                                this.sound.playClack(0.55, true);
+                            } else {
+                                b.vx = diff * 0.28;
+                                b.x += b.vx;
+                            }
+                        } else if (Math.abs(b.vx) > 0.05) {
+                            // 指を離した後の慣性滑走
+                            b.x += b.vx;
+                            b.vx *= friction;
+                        } else {
+                            b.vx = 0;
+                        }
+                    }
+
+                    // 玉同士および木枠との衝突解決
+                    this.resolveConstraints(true, r);
+                }
+
+                this.updateCounter();
+            }
+
+            /**
+             * 重なり防止と反発・打撃音の判定
+             */
+            resolveConstraints(playSound = true, targetRow = null) {
+                const startR = targetRow !== null ? targetRow : 0;
+                const endR = targetRow !== null ? targetRow + 1 : this.rows;
+
+                for (let r = startR; r < endR; r++) {
+                    const rowBeads = this.beads[r];
+                    const minLeft = this.trackLeft + this.beadWidth * 0.5;
+                    const maxRight = this.trackRight - this.beadWidth * 0.5;
+
+                    // 複数回反復して玉同士のめり込みを完全に防ぐ
+                    for (let iter = 0; iter < 4; iter++) {
+                        // 左壁との衝突
+                        if (rowBeads[0].x < minLeft) {
+                            const impact = Math.abs(rowBeads[0].vx);
+                            if (playSound && impact > 2.5) {
+                                this.sound.playClack(0.55, true);
+                            }
+                            rowBeads[0].x = minLeft;
+                            rowBeads[0].vx = 0;
+                            rowBeads[0].targetX = null;
+                        }
+
+                        // 右壁との衝突
+                        const last = rowBeads[this.beadsPerRow - 1];
+                        if (last.x > maxRight) {
+                            const impact = Math.abs(last.vx);
+                            if (playSound && impact > 2.5) {
+                                this.sound.playClack(0.55, true);
+                            }
+                            last.x = maxRight;
+                            last.vx = 0;
+                            last.targetX = null;
+                        }
+
+                        // 隣接する玉同士の衝突
+                        for (let i = 0; i < this.beadsPerRow - 1; i++) {
+                            const b1 = rowBeads[i];
+                            const b2 = rowBeads[i + 1];
+                            const dist = b2.x - b1.x;
+
+                            if (dist < this.beadWidth) {
+                                const overlap = this.beadWidth - dist;
+                                const relVel = Math.abs(b1.vx - b2.vx);
+
+                                // ドラッグ中の押し出し音は propagatePush 側で制御するため、慣性滑走時のみ発音
+                                if (!this.activeDrag && playSound && relVel > 2.5 && iter === 0) {
+                                    this.sound.playClack(0.55, false);
+                                }
+
+                                // ドラッグ中の玉は位置を優先
+                                if (this.activeDrag && this.activeDrag.row === r && this.activeDrag.index === i) {
+                                    b2.x += overlap;
+                                    b2.vx = Math.max(b2.vx, b1.vx);
+                                } else if (this.activeDrag && this.activeDrag.row === r && this.activeDrag.index === i + 1) {
+                                    b1.x -= overlap;
+                                    b1.vx = Math.min(b1.vx, b2.vx);
+                                } else {
+                                    b1.x -= overlap * 0.5;
+                                    b2.x += overlap * 0.5;
+                                    // 運動量の交換（コツンと玉突きのように伝わる）
+                                    const avgVx = (b1.vx + b2.vx) * 0.5;
+                                    b1.vx = avgVx;
+                                    b2.vx = avgVx;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            /**
+             * 左側に寄せた玉の数をカウントして表示更新
+             */
+            updateCounter() {
+                const midX = (this.trackLeft + this.trackRight) / 2;
+                let totalCount = 0;
+                const rowCounts = new Array(this.rows).fill(0);
+
+                for (let r = 0; r < this.rows; r++) {
+                    for (let i = 0; i < this.beadsPerRow; i++) {
+                        if (this.beads[r][i].x < midX) {
+                            rowCounts[r]++;
+                            totalCount++;
+                        }
+                    }
+                }
+
+                if (this.rows === 2) {
+                    this.countTopEl.textContent = rowCounts[0];
+                    this.countBottomEl.textContent = rowCounts[1];
+                }
+                this.countTotalEl.textContent = totalCount;
+            }
+
+            /**
+             * リアルな描画処理（木枠・金属棒・立体木製ビーズ）
+             */
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.width, this.height);
+
+                // 1. 背景の薄い木製バックボード（奥行き感）
+                ctx.fillStyle = '#efe2ce';
+                ctx.fillRect(0, 0, this.width, this.height);
+
+                // 中央の区切り目安ライン（10個の玉がぴったり収まる基準線）
+                const midX = (this.trackLeft + this.trackRight) / 2;
+                ctx.strokeStyle = 'rgba(140, 95, 50, 0.35)';
+                ctx.lineWidth = 2.5;
+                ctx.setLineDash([8, 6]);
+                ctx.beginPath();
+                ctx.moveTo(midX, this.frameThickness);
+                ctx.lineTo(midX, this.height - this.frameThickness);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 2. 金属製の軸棒（ステンレス・スチールシャフト）
+                const rodRadius = Math.max(4, this.beadHeight * 0.085);
+                for (let r = 0; r < this.rows; r++) {
+                    const y = this.rowY[r];
+
+                    // 棒のドロップシャドウ
+                    ctx.fillStyle = 'rgba(60, 35, 15, 0.18)';
+                    ctx.fillRect(this.trackLeft, y + rodRadius + 4, this.trackRight - this.trackLeft, rodRadius * 1.4);
+
+                    // 金属グラデーション
+                    const rodGrad = ctx.createLinearGradient(0, y - rodRadius, 0, y + rodRadius);
+                    rodGrad.addColorStop(0, '#6b7280');
+                    rodGrad.addColorStop(0.25, '#e5e7eb');
+                    rodGrad.addColorStop(0.5, '#ffffff');
+                    rodGrad.addColorStop(0.8, '#9ca3af');
+                    rodGrad.addColorStop(1, '#4b5563');
+
+                    ctx.fillStyle = rodGrad;
+                    ctx.fillRect(this.trackLeft, y - rodRadius, this.trackRight - this.trackLeft, rodRadius * 2);
+                }
+
+                // 3. 木製の玉（ビーズ）の描画
+                for (let r = 0; r < this.rows; r++) {
+                    const y = this.rowY[r];
+                    for (let i = 0; i < this.beadsPerRow; i++) {
+                        this.drawWoodenBead(this.beads[r][i], y);
+                    }
+                }
+
+                // 4. 外周の木製フレーム（画像のような厚みのあるブナ材フレーム）
+                this.drawWoodenFrame();
+            }
+
+            /**
+             * 木製の玉（1個分）を立体的に描画
+             */
+            drawWoodenBead(bead, centerY) {
+                const ctx = this.ctx;
+                const x = bead.x;
+                const w = this.beadWidth;
+                const h = this.beadHeight;
+                const rx = w * 0.48;
+                const ry = h * 0.5;
+                const cornerRadius = Math.min(w * 0.44, h * 0.36);
+
+                // 玉の落ちる影（奥行き表現）
+                ctx.save();
+                ctx.fillStyle = 'rgba(55, 30, 10, 0.24)';
+                ctx.beginPath();
+                ctx.roundRect(x - rx + 3, centerY - ry + 6, w * 0.96, h, cornerRadius);
+                ctx.fill();
+
+                // 玉の本体パス（角丸のそろばん玉・木製ビーズ形状）
+                ctx.beginPath();
+                ctx.roundRect(x - rx, centerY - ry, w * 0.96, h, cornerRadius);
+                ctx.clip();
+
+                // カラー設定（画像に近い深みのある赤と、温かみのある黄色）
+                const grad = ctx.createRadialGradient(
+                    x - w * 0.16, centerY - h * 0.22, w * 0.05,
+                    x, centerY, Math.max(w, h) * 0.75
+                );
+
+                if (bead.colorType === 'red') {
+                    // 落ち着いた木製塗料の赤（クリムゾン〜えんじ）
+                    grad.addColorStop(0, '#f87171');
+                    grad.addColorStop(0.25, '#dc2626');
+                    grad.addColorStop(0.7, '#991b1b');
+                    grad.addColorStop(1, '#5c0f0f');
+                } else {
+                    // 落ち着いた木製塗料の黄色（マスタード〜ハニーイエロー）
+                    grad.addColorStop(0, '#fef08a');
+                    grad.addColorStop(0.25, '#eab308');
+                    grad.addColorStop(0.7, '#ca8a04');
+                    grad.addColorStop(1, '#713f12');
+                }
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(x - rx, centerY - ry, w, h);
+
+                // 上部のツヤ（木のニス塗装のハイライト）
+                const highlightGrad = ctx.createLinearGradient(0, centerY - ry, 0, centerY);
+                highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+                highlightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = highlightGrad;
+                ctx.beginPath();
+                ctx.ellipse(x - w * 0.05, centerY - ry * 0.45, w * 0.3, h * 0.18, -0.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 左右の縁のわずかな暗み（隣り合う玉との境界をくっきりさせる）
+                const edgeGrad = ctx.createLinearGradient(x - rx, 0, x + rx, 0);
+                edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0.25)');
+                edgeGrad.addColorStop(0.15, 'rgba(0, 0, 0, 0)');
+                edgeGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0)');
+                edgeGrad.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+                ctx.fillStyle = edgeGrad;
+                ctx.fillRect(x - rx, centerY - ry, w, h);
+
+                ctx.restore();
+
+                // 玉の外周輪郭線（非常に繊細な境界線）
+                ctx.strokeStyle = bead.colorType === 'red' ? 'rgba(69, 10, 10, 0.4)' : 'rgba(66, 32, 6, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(x - rx, centerY - ry, w * 0.96, h, cornerRadius);
+                ctx.stroke();
+            }
+
+            /**
+             * 外周の木製フレーム描画
+             */
+            drawWoodenFrame() {
+                const ctx = this.ctx;
+                const ft = this.frameThickness;
+                const w = this.width;
+                const h = this.height;
+
+                ctx.save();
+                ctx.fillStyle = this.woodPattern || '#d4a373';
+
+                // 上枠・下枠・左枠・右枠
+                ctx.fillRect(0, 0, w, ft); // 上
+                ctx.fillRect(0, h - ft, w, ft); // 下
+                ctx.fillRect(0, 0, ft, h); // 左
+                ctx.fillRect(w - ft, 0, ft, h); // 右
+
+                // 内側の面取り影（立体的な額縁効果）
+                ctx.strokeStyle = 'rgba(92, 58, 28, 0.45)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(ft, ft, w - ft * 2, h - ft * 2);
+
+                // ハイライトエッジ
+                ctx.strokeStyle = 'rgba(255, 248, 235, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(ft, h - ft);
+                ctx.lineTo(w - ft, h - ft);
+                ctx.lineTo(w - ft, ft);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            /**
+             * メインループ
+             */
+            loop(timestamp) {
+                this.updatePhysics();
+                this.draw();
+                requestAnimationFrame((t) => this.loop(t));
+            }
+        }
+
+        // ページ読み込み完了時にアプリ起動
+        window.addEventListener('DOMContentLoaded', () => {
+            new Soroban20App();
+        });
+    </script>
+</body>
+</html>
